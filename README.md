@@ -1,2 +1,2 @@
-# AI-caramba-
+# AI-caramba
 OpenAI Open Model Hackathon
