@@ -91,7 +91,7 @@ Based on sensor readings, your plant can be:
 
 Run the test function:
 ```bash
-modal run plant_bud_backend.py::test_plant_system
+modal run plant_backend.py::test_plant_system
 ```
 
 ## 📝 Example Response
@@ -109,7 +109,7 @@ modal run plant_bud_backend.py::test_plant_system
 ## 🛠️ Development
 
 ### Option 1:
-1. Change the app name in your copy: `app = modal.App("plant-bud-backend-yourname")`
+1. Change the app name in your copy: `app = modal.App("plant-backend-yourname")`
 2. Deploy your version: `modal deploy your_file.py`
 3. You'll get your own URL to test
 
