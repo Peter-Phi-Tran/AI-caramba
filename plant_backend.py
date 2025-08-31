@@ -35,7 +35,7 @@ image = modal.Image.debian_slim().pip_install([
 class SensorData(BaseModel):
     plant_id: str
     soil_moisture: float  # 0-100 percentage
-    light_level: float    # lux or 0-100 percentage
+    # light_level: float    # lux or 0-100 percentage
     temperature: float    # celsius
     humidity: float       # 0-100 percentage
     timestamp: Optional[str] = None
@@ -72,14 +72,14 @@ class PlantMoodEngine:
             mood_score -= 30
             
         # Light level analysis (ideal: 40-80%)
-        if sensor_data.light_level < 20:
-            needs.append("more light")
-            mood = "sad" if mood == "happy" else "very_sad"
-            mood_score -= 30
-        elif sensor_data.light_level > 90:
-            needs.append("shade")
-            mood = "stressed" if mood == "happy" else "very_stressed"
-            mood_score -= 20
+        #if sensor_data.light_level < 20:
+        #    needs.append("more light")
+        #    mood = "sad" if mood == "happy" else "very_sad"
+        #    mood_score -= 30
+        #elif sensor_data.light_level > 90:
+        #    needs.append("shade")
+        #    mood = "stressed" if mood == "happy" else "very_stressed"
+        #    mood_score -= 20
             
         # Temperature analysis (ideal: 18-25°C)
         if sensor_data.temperature < 15:
@@ -117,22 +117,25 @@ class PlantMoodEngine:
             "mood_score": mood_score,
             "sensor_summary": {
                 "soil_moisture": sensor_data.soil_moisture,
-                "light_level": sensor_data.light_level,
+                #"light_level": sensor_data.light_level,
                 "temperature": sensor_data.temperature,
                 "humidity": sensor_data.humidity
             }
         }
 
 def extract_plant_response(response: str) -> str:
-    """Extract the plant-character response from within quotes, if present, and normalize Unicode."""
+    """Extract the last quoted plant-character response and normalize Unicode."""
     # Normalize Unicode to avoid encoding artifacts
     response = unicodedata.normalize('NFKC', response)
-    # Look for text within quotes that resembles the plant response
-    match = re.search(r'"([^"]+)"', response)
-    if match:
-        plant_response = match.group(1)
-        logger.info(f"Extracted plant response: {plant_response}")
+    
+    # Find all substrings inside double quotes
+    matches = re.findall(r'"([^"]+)"', response)
+    
+    if matches:
+        plant_response = matches[-1]  # take the last quoted substring
+        logger.info(f"Extracted last plant response: {plant_response}")
         return plant_response
+    
     logger.info("No quoted plant response found, returning original response")
     return response
 
@@ -169,7 +172,6 @@ Current physical state:"""
     
     status_report = f"""
 - Soil moisture: {sensor_data.soil_moisture}% ({"perfect" if 40 <= sensor_data.soil_moisture <= 60 else "needs attention"})
-- Light level: {sensor_data.light_level}% ({"great" if 40 <= sensor_data.light_level <= 80 else "not ideal"})
 - Temperature: {sensor_data.temperature}°C ({"comfortable" if 18 <= sensor_data.temperature <= 25 else "uncomfortable"})
 - Humidity: {sensor_data.humidity}% ({"nice" if 40 <= sensor_data.humidity <= 60 else "could be better"})
 
@@ -178,7 +180,7 @@ Current needs: {', '.join(mood_info['needs']) if mood_info['needs'] else 'All go
 
 Example responses:
 1. "Hey there! I'm soaking up the sun, but my soil's a bit dry. Water me, please!"
-2. "Yo, human! I'm loving this light, but my roots are thirsty. Got some water?"
+2. "Yo, human! I'm loving this weather, but my roots are thirsty. Got some water?"
 3. "Well, hello! I'm cozy at 22°C, but my soil's parched. Hydrate me, pronto!"
 
 Incorrect response example (DO NOT DO THIS):
@@ -333,6 +335,7 @@ async def receive_sensor_data(sensor_data: SensorData):
         plant_data_store[sensor_data.plant_id] = {
             "sensor_data": sensor_data.dict(),
             "mood_info": mood_info,
+            "last_response": ai_response,
             "last_updated": sensor_data.timestamp
         }
         
@@ -429,7 +432,7 @@ def test_plant_system():
     test_sensor = SensorData(
         plant_id="test_plant_001",
         soil_moisture=25.0,
-        light_level=45.0,
+        #light_level=45.0,
         temperature=22.0,
         humidity=50.0
     )
