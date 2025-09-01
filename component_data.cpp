@@ -24,7 +24,7 @@ void loop() {
     http.setTimeout(180000);  // 3 minute timeout for cold starts and processing
     http.addHeader("Content-Type", "application/json");
 
-    String json = "{\"plant_id\":\"my_plant_001\",\"soil_moisture\":25.0,\"light_level\":65.0,\"temperature\":22.0,\"humidity\":50.0}";
+    String json = "{\"plant_id\":\"my_plant_001\",\"soil_moisture\":25.0,\"temperature\":22.0,\"humidity\":50.0}";
 
     Serial.println("Starting POST request...");
     Serial.println("Payload: " + json);
