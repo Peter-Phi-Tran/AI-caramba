@@ -9,8 +9,8 @@
 #include <DHT_U.h>
 
 
-const char* ssid = "Asian Persuasion";
-const char* password = "Phung170810!";
+const char* ssid = "";
+const char* password = "";
 
 const char*  serverURL = "https://uta2025hackathon--plant-backend-fastapi-app.modal.run/sensor-data";  
 
