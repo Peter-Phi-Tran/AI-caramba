@@ -125,16 +125,23 @@ void loop() {
 
     SoilMoistureValue = analogRead(12);
 
-    SoilMoisturePercent = map(SoilMoistureValue, DryValue, WetValue, 0, 100);
+    SoilMoisturePercent = map(SoilMoistureValue, WetValue, DryValue, 0, 100);
     SoilMoisturePercent = constrain(SoilMoistureValue, 0, 100);
     Serial.println(SoilMoisturePercent);
 
     dht.temperature().getEvent(&event);
+    if (!isnan(event.temperature)) {
+      Serial.print("Temperature: ");
+      Serial.println(event.temperature);
+      temperature = event.temperature;
+    }
+
     dht.humidity().getEvent(&event);
-
-
-    temperature = event.temperature;
-    humidity = event.relative_humidity;
+    if (!isnan(event.relative_humidity)) {
+      Serial.print("Humidity: ");
+      Serial.println(event.relative_humidity);
+      humidity = event.relative_humidity;
+    }
 
     
     // Try with much longer timeout for slow Modal API
@@ -143,12 +150,12 @@ void loop() {
     http.setTimeout(180000);  // 3 minute timeout for cold starts and processing
     http.addHeader("Content-Type", "application/json");
 
-    String json = "{\n"
-            "\t\"plant_id\": \"my_plant_001\",\n"
-            "\t\"soil_moisture\": " + String(SoilMoisturePercent) + ",\n"
-            "\t\"temperature\":" + String(temperature) + ",\n"
-            "\t\"humidity\":" + String(humidity) + ",\n"
-            "}";
+ String json = "{\n"
+        "\t\"plant_id\": \"my_plant_001\",\n"
+        "\t\"soil_moisture\": " + String(SoilMoisturePercent) + ",\n"
+        "\t\"temperature\": " + String(temperature) + ",\n"
+        "\t\"humidity\": " + String(humidity) + "\n"   // removed comma here
+        "}";
 
     Serial.println("Starting POST request...");
     Serial.println("Payload: " + json);
@@ -177,7 +184,7 @@ void loop() {
       Serial.printf("Connection Error: %s\n", http.errorToString(httpCode).c_str());
     }
 
-    http.end();
+     http.end();
   } else {
     Serial.println("WiFi disconnected!");
   }
