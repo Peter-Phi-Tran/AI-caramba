@@ -5,13 +5,10 @@ import sys
 import time
 import threading
 
-# ========================
-# CONFIGURATION
-# ========================
+# --- Configuration ---
 BASE_URL = "https://uta2025hackathon--plant-backend-fastapi-app.modal.run"
 PLANT_ID = "my_plant_001"
 
-# Map moods to GIF files
 mood_files = {
     "very_happy": "assets/plant_very_happy.gif",
     "happy": "assets/plant_happy.gif",
@@ -20,113 +17,106 @@ mood_files = {
 }
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240
-FPS = 10  # Speed of animation
-MOOD_UPDATE_INTERVAL = 15  # seconds between API calls
+FPS = 10  # Adjust frame speed
 
-# ========================
-# GLOBAL STATE
-# ========================
-current_mood = "okay"  # Default mood
-latest_mood = None
-mood_lock = threading.Lock()
-
-# ========================
-# FUNCTIONS
-# ========================
-
-def get_plant_mood():
-    """Fetch the latest mood from the API with timeout handling."""
-    try:
-        response = requests.get(
-            f"{BASE_URL}/plant/{PLANT_ID}/status",
-            timeout=5  # fail fast if API is slow
-        )
-        response.raise_for_status()
-        data = response.json()
-        mood = data.get("mood_info", {}).get("mood", "okay") # fallback if 'mood' key missing
-        return mood 
-    except requests.RequestException as e:
-        print(f"API call failed: {e}")
-        return None
-
-
-def fetch_mood_background():
-    """Runs in a separate thread so API calls don't freeze the game loop."""
-    global latest_mood
-    new_mood = get_plant_mood()
-    if new_mood:
-        with mood_lock:
-            latest_mood = new_mood
-
-
-def load_gif_frames(path):
-    """Load all frames of a GIF as Pygame images."""
-    gif = Image.open(path)
-    frames = []
-
-    try:
-        while True:
-            frame = gif.convert("RGBA")
-            pygame_image = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode)
-            frames.append(pygame_image)
-            gif.seek(gif.tell() + 1)
-    except EOFError:
-        pass  # Reached the end of the GIF
-
-    print(f"Loaded {len(frames)} frames from {path}")
-    return frames
-
-
-# ========================
-# INITIALIZATION
-# ========================
+# --- Initialize Pygame ---
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Plant Mood Display")
 
-# Load initial mood frames
-frames = load_gif_frames(mood_files[current_mood])
+# Font for text
+pygame.font.init()
+font = pygame.font.SysFont("Arial", 16)
 
+# Global state
+current_mood = "very_happy"
+ai_response = "Loading plant response..."
+frames = []
 frame_index = 0
 clock = pygame.time.Clock()
+
+# --- Function to load GIF frames ---
+def load_gif_frames(gif_path):
+    gif = Image.open(gif_path)
+    gif_frames = []
+    try:
+        while True:
+            frame = gif.convert("RGBA")
+            pygame_image = pygame.image.fromstring(frame.tobytes(), frame.size, frame.mode)
+            gif_frames.append(pygame_image)
+            gif.seek(gif.tell() + 1)
+    except EOFError:
+        pass
+    return gif_frames
+
+# Load initial mood frames
+frames = load_gif_frames(mood_files[current_mood])
+print(f"Loaded {len(frames)} frames for {current_mood}")
+
+# --- Background thread to fetch API data ---
+def update_mood_from_api():
+    global current_mood, frames, ai_response
+    while True:
+        try:
+            response = requests.get(f"{BASE_URL}/plant/{PLANT_ID}/status", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                mood = data.get("mood_info", {}).get("mood", "okay")
+                ai_response = data.get("last_response", "No response available")
+
+                # Update mood if changed
+                if mood != current_mood:
+                    current_mood = mood
+                    frames[:] = load_gif_frames(mood_files.get(current_mood, mood_files["okay"]))
+                    print(f"Mood updated to {current_mood}")
+            else:
+                ai_response = "Error: Failed to fetch plant data"
+        except requests.Timeout:
+            ai_response = "Error: API request timed out"
+        except Exception as e:
+            ai_response = f"Error: {e}"
+
+        time.sleep(10)  # Update every 10 seconds
+
+# Start the thread
+threading.Thread(target=update_mood_from_api, daemon=True).start()
+
+# --- Main loop ---
 running = True
-
-# Timing for mood updates
-last_mood_check = 0
-
-# ========================
-# MAIN LOOP
-# ========================
 while running:
-    # Handle quit event
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-    # Periodically fetch mood in background
-    if time.time() - last_mood_check >= MOOD_UPDATE_INTERVAL:
-        threading.Thread(target=fetch_mood_background, daemon=True).start()
-        last_mood_check = time.time()
-
-    # Check if background thread updated the mood
-    with mood_lock:
-        if latest_mood and latest_mood != current_mood:
-            print(f"Mood changed: {current_mood} -> {latest_mood}")
-            current_mood = latest_mood
-            frames = load_gif_frames(mood_files[current_mood])
-            frame_index = 0
-
-    # Draw current frame
     screen.fill((0, 0, 0))
-    frame = frames[frame_index]
 
-    # Optional scaling to fit display
+    # Draw GIF frame
+    frame = frames[frame_index]
     scaled_frame = pygame.transform.scale(frame, (128, 128))
-    screen.blit(scaled_frame, ((SCREEN_WIDTH - 128) // 2, (SCREEN_HEIGHT - 128) // 2))
+    screen.blit(scaled_frame, ((SCREEN_WIDTH - 128) // 2, 20))
+
+    # Draw AI response text
+    lines = []
+    words = ai_response.split(" ")
+    current_line = ""
+
+    # Wrap text so it fits screen width
+    for word in words:
+        if font.size(current_line + word)[0] < SCREEN_WIDTH - 20:
+            current_line += word + " "
+        else:
+            lines.append(current_line)
+            current_line = word + " "
+    lines.append(current_line)
+
+    y_offset = 160  # Start drawing text below GIF
+    for line in lines:
+        text_surface = font.render(line, True, (255, 255, 255))
+        screen.blit(text_surface, (10, y_offset))
+        y_offset += 18
 
     pygame.display.flip()
 
-    # Advance GIF frame
     frame_index = (frame_index + 1) % len(frames)
     clock.tick(FPS)
 
