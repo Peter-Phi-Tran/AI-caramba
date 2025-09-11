@@ -266,12 +266,17 @@ modal deploy plant_backend.py
 
 ### Creating an Executable
 1. **Install Dependencies for display_face.py**
+
 ```pip install pillow pygame requests```
-2. **Find your python path**
+3. **Find your python path**
+
 ```which python```
-3. **Create .dekstop file**
+4. **Create .dekstop file**
+
 ```nano ~/.config/autostart/display_face.desktop```
+
 Paste this content, replacing the paths with your own:
+
 ```
 [Desktop Entry]
 Name=Plant Mood Display
@@ -281,7 +286,9 @@ Icon=/home/pi/assets/plant_icon.png
 Terminal=false
 Type=Application
 ```
+
 5. **Make the File Executable**
+
 ```chmod +x ~/.config/autostart/display_face.desktop```
 
 ## How It Works
