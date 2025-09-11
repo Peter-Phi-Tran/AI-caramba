@@ -268,9 +268,11 @@ modal deploy plant_backend.py
 1. **Install Dependencies for display_face.py**
 
 ```pip install pillow pygame requests```
+
 3. **Find your python path**
 
 ```which python```
+
 4. **Create .dekstop file**
 
 ```nano ~/.config/autostart/display_face.desktop```
