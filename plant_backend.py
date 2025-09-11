@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 # Modal app definition
 app = modal.App("plant-backend")
 
+# Create volume for persistent storage
+volume = modal.Volume.from_name("plant_data_volume", create_if_missing=True)
+
 # Define the image with dependencies for gpt-oss-20b (no quantization)
 image = modal.Image.debian_slim().pip_install([
     "fastapi",
@@ -332,12 +335,22 @@ async def receive_sensor_data(sensor_data: SensorData):
             logger.info("Fallback triggered in receive_sensor_data")
             ai_response = create_fallback_response(mood_info)
         
-        plant_data_store[sensor_data.plant_id] = {
+        plant_record = {
             "sensor_data": sensor_data.dict(),
             "mood_info": mood_info,
             "last_response": ai_response,
             "last_updated": sensor_data.timestamp
         }
+
+        file_path = f"/data/{sensor_data.plant_id}.json"
+        try:
+            with open(file_path, "w") as f:
+                json.dump(plant_record, f)
+            volume.commit()
+            logger.info("Successfully stored info to {volume}")
+        except Exception as e:
+            logger.error(f"Error in receive_sensor_data, writing sensor data: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error processing sensor data: {str(e)}")
         
         response = PlantResponse(
             plant_id=sensor_data.plant_id,
@@ -359,10 +372,16 @@ async def chat_with_plant(chat_message: ChatMessage):
     try:
         if not chat_message.timestamp:
             chat_message.timestamp = datetime.now().isoformat()
-            
-        plant_data = plant_data_store.get(chat_message.plant_id)
-        if not plant_data:
-            raise HTTPException(status_code=404, detail="Plant not found. Send sensor data first.")
+        
+        plant_data = {}
+        file_path = f"/data/{chat_message.plant_id}.json"
+        try:
+            with open(file_path, "r") as f:
+                plant_data = json.load(f)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Plant not found")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=404, detail="Invalid JSON format")
             
         sensor_data = SensorData(**plant_data["sensor_data"])
         mood_info = plant_data["mood_info"]
@@ -403,10 +422,16 @@ async def chat_with_plant(chat_message: ChatMessage):
 @web_app.get("/plant/{plant_id}/status")
 async def get_plant_status(plant_id: str):
     """Get current plant status"""
-    plant_data = plant_data_store.get(plant_id)
-    if not plant_data:
+
+    file_path = f"/data/{plant_id}.json"
+    try:
+        with open(file_path, "r") as f:
+            plant_data = json.load(f)
+        return plant_data
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Plant not found")
-    return plant_data
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=404, detail="Invalid JSON format")
 
 @web_app.get("/plant/{plant_id}/history")
 async def get_chat_history(plant_id: str):
@@ -420,7 +445,7 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 # Deploy the FastAPI app
-@app.function(image=image, min_containers=0)
+@app.function(image=image, volumes={"/data": volume}, min_containers=0)
 @modal.asgi_app()
 def fastapi_app():
     return web_app
