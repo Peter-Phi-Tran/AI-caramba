@@ -264,6 +264,26 @@ modal deploy plant_backend.py
 5. **Update webhook URL** in `discord_plant_monitor.py`
 6. **Run monitor**: `python discord_plant_monitor.py`
 
+### Creating an Executable
+1. **Install Dependencies for display_face.py**
+```pip install pillow pygame requests```
+2. **Find your python path**
+```which python```
+3. **Create .dekstop file**
+```nano ~/.config/autostart/display_face.desktop```
+Paste this content, replacing the paths with your own:
+```
+[Desktop Entry]
+Name=Plant Mood Display
+Comment=Shows the plant's mood on the touchscreen
+Exec=/home/pi/miniconda3/envs/plantenv/bin/python /home/pi/display_face.py
+Icon=/home/pi/assets/plant_icon.png
+Terminal=false
+Type=Application
+```
+5. **Make the File Executable**
+```chmod +x ~/.config/autostart/display_face.desktop```
+
 ## How It Works
 
 ```mermaid
